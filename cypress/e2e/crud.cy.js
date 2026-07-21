@@ -1,5 +1,5 @@
-// CRUD Tests - Recipe Book
-describe('CRUD Operations - Recipe Book', () => {
+// CRUD Tests - 02 Recipe Book
+describe('CRUD Operations - 02 Recipe Book', () => {
   beforeEach(() => {
     cy.visit('/');
     cy.get('.nav-link[data-page="recipes"]').click();
@@ -105,7 +105,7 @@ describe('CRUD Operations - Recipe Book', () => {
     cy.request({
       method: 'POST',
       url: '/api/recipes',
-      body: {"title":"Test Recipe","description":"Mix ingredients","ingredients":"flour, eggs, milk","category":"Breakfast","prepTime":"30","rating":"4"},
+      body: {"title": "Test Recipe", "description": "Mix ingredients", "ingredients": "flour, eggs, milk", "category": "Breakfast", "prepTime": "30", "rating": "4"},
     }).its('status').should('eq', 201);
   });
 
