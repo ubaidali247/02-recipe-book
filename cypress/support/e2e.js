@@ -6,7 +6,3 @@ Cypress.Commands.add('resetDB', () => {
 Cypress.Commands.add('getItems', () => {
   return cy.request('GET', 'http://localhost:3002/api/recipes').its('body');
 });
-
-beforeEach(() => {
-  cy.resetDB();
-});
