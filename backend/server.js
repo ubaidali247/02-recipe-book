@@ -12,6 +12,44 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
+// ============================================================
+// FLAKINESS INJECTION LAYER
+// Controls which endpoints behave unreliably and how often
+// Used for: MSc Dissertation - AI-Assisted Flaky Test Detection
+// ============================================================
+const FLAKY_CONFIG = {
+  enabled: true,
+  slowEndpoints: ['/api/recipes', '/api/recipes/:id'],  // GET endpoints that randomly slow down
+  errorEndpoints: ['/api/recipes'],                       // POST endpoint that randomly errors
+  slowProbability: 0.35,    // 35% chance of slow response
+  errorProbability: 0.25,   // 25% chance of server error on POST
+  slowDelayMs: {
+    min: 3000,
+    max: 8000
+  }
+};
+
+function randomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shouldBeFlaky(probability) {
+  return FLAKY_CONFIG.enabled && Math.random() < probability;
+}
+
+// Flakiness middleware for GET /api/recipes
+function flakyGetMiddleware(req, res, next) {
+  if (shouldBeFlaky(FLAKY_CONFIG.slowProbability)) {
+    const delay = randomDelay(FLAKY_CONFIG.slowDelayMs.min, FLAKY_CONFIG.slowDelayMs.max);
+    console.log(`[FLAKY] Injecting ${delay}ms delay on GET /api/recipes`);
+    setTimeout(next, delay);
+  } else {
+    next();
+  }
+}
+
+// ============================================================
+
 function readDB() {
   if (!fs.existsSync(DB_PATH)) {
     const initial = { recipes: [] };
@@ -25,7 +63,6 @@ function writeDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
-// Seed data if empty
 function seedIfEmpty() {
   const db = readDB();
   if (db.recipes.length === 0) {
@@ -33,58 +70,58 @@ function seedIfEmpty() {
     {
         "id": "seed-1",
         "title": "Spaghetti Carbonara",
-        "description": "Sample description for Spaghetti Carbonara. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 1.",
         "category": "Breakfast",
-        "createdAt": "2026-07-21T00:21:18.538Z"
+        "createdAt": "2024-01-01T10:00:00.000Z"
     },
     {
         "id": "seed-2",
         "title": "Chicken Tikka Masala",
-        "description": "Sample description for Chicken Tikka Masala. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 2.",
         "category": "Lunch",
-        "createdAt": "2026-07-20T00:21:18.539Z"
+        "createdAt": "2024-02-02T10:00:00.000Z"
     },
     {
         "id": "seed-3",
         "title": "Avocado Toast",
-        "description": "Sample description for Avocado Toast. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 3.",
         "category": "Dinner",
-        "createdAt": "2026-07-19T00:21:18.539Z"
+        "createdAt": "2024-03-03T10:00:00.000Z"
     },
     {
         "id": "seed-4",
         "title": "Chocolate Lava Cake",
-        "description": "Sample description for Chocolate Lava Cake. This is test data for the flaky test detection research study.",
+        "description": "Sample description for research study item 4.",
         "category": "Dessert",
-        "createdAt": "2026-07-18T00:21:18.539Z"
+        "createdAt": "2024-04-04T10:00:00.000Z"
     },
     {
         "id": "seed-5",
         "title": "Greek Salad",
-        "description": "Sample description for Greek Salad. This is test data for the flaky test detection research study.",
-        "category": "Snack",
-        "createdAt": "2026-07-17T00:21:18.539Z"
+        "description": "Sample description for research study item 5.",
+        "category": "Breakfast",
+        "createdAt": "2024-05-05T10:00:00.000Z"
     },
     {
         "id": "seed-6",
         "title": "Beef Stir Fry",
-        "description": "Sample description for Beef Stir Fry. This is test data for the flaky test detection research study.",
-        "category": "Breakfast",
-        "createdAt": "2026-07-16T00:21:18.539Z"
+        "description": "Sample description for research study item 6.",
+        "category": "Lunch",
+        "createdAt": "2024-06-06T10:00:00.000Z"
     },
     {
         "id": "seed-7",
         "title": "Banana Bread",
-        "description": "Sample description for Banana Bread. This is test data for the flaky test detection research study.",
-        "category": "Lunch",
-        "createdAt": "2026-07-15T00:21:18.539Z"
+        "description": "Sample description for research study item 7.",
+        "category": "Dinner",
+        "createdAt": "2024-07-07T10:00:00.000Z"
     },
     {
         "id": "seed-8",
         "title": "French Onion Soup",
-        "description": "Sample description for French Onion Soup. This is test data for the flaky test detection research study.",
-        "category": "Dinner",
-        "createdAt": "2026-07-14T00:21:18.539Z"
+        "description": "Sample description for research study item 8.",
+        "category": "Dessert",
+        "createdAt": "2024-08-08T10:00:00.000Z"
     }
 ];
     writeDB(db);
@@ -92,13 +129,13 @@ function seedIfEmpty() {
 }
 seedIfEmpty();
 
-// GET all
-app.get('/api/recipes', (req, res) => {
+// GET all - with flakiness injection
+app.get('/api/recipes', flakyGetMiddleware, (req, res) => {
   const db = readDB();
   let items = db.recipes;
   if (req.query.search) {
     const q = req.query.search.toLowerCase();
-    items = items.filter(i => i.title && i.title.toLowerCase().includes(q) || (i.name && i.name.toLowerCase().includes(q)));
+    items = items.filter(i => (i.title && i.title.toLowerCase().includes(q)) || (i.name && i.name.toLowerCase().includes(q)));
   }
   if (req.query.category) {
     items = items.filter(i => i.category === req.query.category);
@@ -106,16 +143,31 @@ app.get('/api/recipes', (req, res) => {
   res.json(items);
 });
 
-// GET one
+// GET one - with flakiness injection
 app.get('/api/recipes/:id', (req, res) => {
-  const db = readDB();
-  const item = db.recipes.find(i => i.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'Not found' });
-  res.json(item);
+  if (shouldBeFlaky(FLAKY_CONFIG.slowProbability * 0.5)) {
+    const delay = randomDelay(2000, 5000);
+    console.log(`[FLAKY] Injecting ${delay}ms delay on GET /api/recipes/${req.params.id}`);
+    setTimeout(() => {
+      const db = readDB();
+      const item = db.recipes.find(i => i.id === req.params.id);
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      res.json(item);
+    }, delay);
+  } else {
+    const db = readDB();
+    const item = db.recipes.find(i => i.id === req.params.id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    res.json(item);
+  }
 });
 
-// POST create
+// POST create - with flakiness injection (random 500 errors)
 app.post('/api/recipes', (req, res) => {
+  if (shouldBeFlaky(FLAKY_CONFIG.errorProbability)) {
+    console.log(`[FLAKY] Injecting 500 error on POST /api/recipes`);
+    return res.status(500).json({ error: 'Internal server error - flaky injection' });
+  }
   const db = readDB();
   const item = { id: uuidv4(), ...req.body, createdAt: new Date().toISOString() };
   db.recipes.push(item);
@@ -152,11 +204,11 @@ app.post('/api/reset', (req, res) => {
 });
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', project: 'Recipe Book' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', project: 'Recipe Book', flakyEnabled: FLAKY_CONFIG.enabled }));
 
 // Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
-app.listen(PORT, () => console.log('Recipe Book server running on http://localhost:3002'));
+app.listen(PORT, () => console.log('Recipe Book server running on http://localhost:3002 [FLAKY MODE: ' + FLAKY_CONFIG.enabled + ']'));
