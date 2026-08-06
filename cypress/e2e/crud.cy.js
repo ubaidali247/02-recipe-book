@@ -18,16 +18,23 @@ describe('CRUD Operations - Recipe Book', () => {
   it('creates a new item successfully', () => {
     cy.get('#btn-add-new').click();
     cy.get('#field-title').type('Test Recipe');
-    cy.get('#field-description, #field-content, #field-review, #field-notes').first().type('Test description for new item');
+    cy.get('#field-description').type('A test recipe description');
+    cy.get('#field-ingredients').type('flour, eggs, milk, sugar');
+    cy.get('#field-prepTime').type('30');
+    cy.get('#field-rating').type('4');
     cy.get('#btn-submit').click();
     cy.get('#page-recipes').should('not.have.class', 'hidden');
     cy.get('#recipes-list').should('contain', 'Test Recipe');
   });
 
   it('shows new item in the list after creation', () => {
-    const title = 'Unique Item ' + Date.now();
+    const title = 'Unique Recipe ' + Date.now();
     cy.get('#btn-add-new').click();
     cy.get('#field-title').type(title);
+    cy.get('#field-description').type('Test description');
+    cy.get('#field-ingredients').type('ingredient 1, ingredient 2');
+    cy.get('#field-prepTime').type('15');
+    cy.get('#field-rating').type('3');
     cy.get('#btn-submit').click();
     cy.get('#recipes-list').should('contain', title);
   });
@@ -111,7 +118,7 @@ describe('CRUD Operations - Recipe Book', () => {
     cy.request({
       method: 'POST',
       url: '/api/recipes',
-      body: {"title":"Test Recipe","description":"Mix ingredients","ingredients":"flour, eggs","category":"Breakfast","prepTime":"30","rating":"4"},
+      body: {"title":"Test Recipe","description":"Mix ingredients","ingredients":"flour, eggs, milk","category":"Breakfast","prepTime":"30","rating":"4"},
       failOnStatusCode: false,
     }).then(res => {
       expect(res.status).to.eq(201);
